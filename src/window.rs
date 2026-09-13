@@ -120,8 +120,8 @@ impl fmt::Debug for Window {
 
 impl Default for Window {
     fn default() -> Self {
-        // Self::new(640, 480)
-        Self::new(1920, 1080)
+        Self::new(640, 480)
+        // Self::new(1920, 1080)
     }
 }
 

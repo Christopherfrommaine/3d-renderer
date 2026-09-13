@@ -1,6 +1,6 @@
-use std::{convert::identity, f64::consts::PI, thread::scope};
+use rayon::scope;
 
-use crate::{linalg::Matrix, structures::{Camera, Object, Scene}};
+use crate::{linalg::*, structures::{Camera, Scene}, obj::Object};
 
 mod linalg;
 mod structures;
@@ -19,7 +19,7 @@ fn percentile(sorted: &[f32], p: f32) -> f32 {
 
 fn print_stats(mut frame_times: Vec<f32>) {
     if frame_times.is_empty() {
-        println!("No frame times provided");
+        log::warn!("No frame times provided");
         return;
     }
 
@@ -40,24 +40,30 @@ fn print_stats(mut frame_times: Vec<f32>) {
 
 }
 
-fn test_scene_triangle() {
+fn test_scene_triangle(renderer: fn(&mut Scene)) {
     let mut frame_times = vec![];
 
     let target_framerate: f64 = 60.;
     let target_frame_time = std::time::Duration::from_secs_f64(target_framerate.recip());
     
-    let mut scene = Scene::new(vec![Object::triangle()], Camera::default());
-    
+    let mut scene = Scene::new(vec![Object::triangle(), Object::triangle(), Object::triangle()], Camera::default());
+    scene.objs[1].pos = Vector::from_array([2., 0., 0.]);
+    scene.objs[2].pos = Vector::from_array([-2., 0., 0.]);
+
     for i in 0.. {
         let start = std::time::Instant::now();
 
-        scene.render_normal();
+        renderer(&mut scene);
 
         if !scene.cam.window.update_frame() {
             break;
         }
 
-        scene.objs[0].rot = Matrix::rotation_matrix(i as f64 * 0.0030, 0., 0.);
+        scene.objs[0].rot = Matrix::rotation_matrix(0., i as f64 * 0.01, 0.);
+        scene.objs[1].rot = Matrix::rotation_matrix(0., 0., i as f64 * 0.01);
+        scene.objs[2].rot = Matrix::rotation_matrix(i as f64 * 0.01, 0., 0.);
+        
+        // for i in 0..=2 { scene.objs[i].pos[2] += -0.1; }
 
         let elapsed = start.elapsed();
         frame_times.push(elapsed.as_secs_f32());
@@ -77,9 +83,11 @@ fn test_scene_with_renderer(renderer: fn(&mut Scene)) {
     let target_framerate: f64 = 60.;
     let target_frame_time = std::time::Duration::from_secs_f64(target_framerate.recip());
     
-    let mut scene = Scene::new(vec![Object::sphere()], Camera::default());
+    let mut scene = Scene::new(vec![Object::cube()], Camera::default());
+    scene.objs[0].pos = Vector::from_array([0., 0., 0.]);
     // scene.objs[0].rot = Matrix::rotation_matrix(0.4, 0.3, 1.2);
     
+    let objs = scene.objs.clone();
     for i in 0.. {
         let start = std::time::Instant::now();
 
@@ -89,16 +97,23 @@ fn test_scene_with_renderer(renderer: fn(&mut Scene)) {
             break;
         }
 
-        scene.objs[0].pos[2] = 9. * (i as f64 * -0.01).sin();
-
+        scene.objs = objs.clone();
+        // scene.objs[0].scale_xyz(Vector::from_array([1., (1. + (i as f64 * 0.02).sin()), 1.]));
+        // scene.objs[0].pos[2] = 5. * (i as f64 * -0.01).sin();
         scene.objs[0].rot = Matrix::rotation_matrix(3.14159 * 0.5 + i as f64 * 0.0080, i as f64 * 0.0085, 3.14159 + i as f64 * 0.0087);
-
+        // scene.objs[0].mat.color = ((((i as f64 * 0.01).sin() + 1.) * 127.) as u8, (((i as f64 * 0.02).sin() + 1.) * 127.) as u8, (((i as f64 * 0.03).sin() + 1.) * 127.) as u8);
+        // scene.objs[0].rot = Matrix::rotation_matrix(i as f64 * 0.01, 0., 0.);
+        
         let elapsed = start.elapsed();
-        frame_times.push(elapsed.as_secs_f32());
-        if elapsed < target_frame_time {
+        let frame_time = elapsed.as_secs_f32();
+        frame_times.push(frame_time);
+        if frame_time > 1. {
+            log::warn!("{:.02} seconds per frame", frame_time);
+        } else if elapsed > target_frame_time {
+            log::debug!("{} millis", elapsed.as_millis())
+        }
+        else {
             std::thread::sleep(target_frame_time - elapsed);
-        } else {
-            log::debug!("{:.02} fps", elapsed.as_secs_f64().recip())
         }
     }
 
@@ -108,8 +123,9 @@ fn test_scene_with_renderer(renderer: fn(&mut Scene)) {
 fn main() {
     env_logger::init();
     
-    // test_scene_triangle();
-    // test_scene_with_renderer(Scene::render_wireframe);
+    // test_scene_triangle(Scene::render_normal);
+    // test_scene_triangle(Scene::render_raytrace);
     test_scene_with_renderer(Scene::render_normal);
+    test_scene_with_renderer(Scene::render_raytrace);
     
 }

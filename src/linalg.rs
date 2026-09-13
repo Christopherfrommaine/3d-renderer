@@ -23,13 +23,11 @@ impl<const M: usize, const N: usize> Matrix<N, M> {
 
     pub fn transpose(self) -> Matrix<M, N> {
         let mut result = [[0.; N]; M];
-
         for i in 0..N {
             for j in 0..M {
                 result[j][i] = self.v[i][j];
             }
         }
-
         Matrix { v: result }
     }
 
@@ -43,6 +41,28 @@ impl<const M: usize, const N: usize> Matrix<N, M> {
 
     pub fn zero() -> Self {
         Matrix { v: [[0.; M]; N] }
+    }
+
+    pub fn hadamard(&self, other: Self) -> Self {
+        Matrix { v: from_fn(|i| from_fn(|j| self.v[i][j] * other.v[i][j])) }
+    }
+
+    pub fn apply_elementwise(&mut self, f: fn(&mut f64)) {
+        self.v.iter_mut().for_each(|row| row.iter_mut().for_each(|elem| f(elem)));
+    }
+
+    pub fn row_vectors(&self) -> [Matrix<1, M>; N] {
+        from_fn(|i| Matrix::from([self.v[i]]))
+    }
+
+    pub fn col_vectors(&self) -> [Vector<N>; M] {
+        // In memory, a 3x3 matrix should be stored like
+        // [[a, b, c], [d, e, f], [g, h, i]]
+        // But we want to get out:
+        // [[[a], [d], [g]], [[b], [e], [h]], [[c], [f], [i]]]
+        // Which is exactly the same memory layout as self.transpose.
+        
+        unsafe { std::mem::transmute(self.transpose()) }
     }
 }
 
@@ -221,10 +241,12 @@ impl Matrix<3, 3> {
         Some(Matrix { v: inv })
     }
 
-    pub fn rotation_matrix(pitch: f64, yaw: f64, roll: f64) -> Self {
-        let rx = Matrix::from([[1., 0., 0.], [0., roll.cos(), -roll.sin()], [0., roll.sin(), roll.cos()]]);
-        let ry = Matrix::from([[pitch.cos(), 0., pitch.sin()], [0., 1., 0.], [-pitch.sin(), 0., pitch.cos()]]);
-        let rz = Matrix::from([[yaw.cos(), -yaw.sin(), 0.], [yaw.sin(), yaw.cos(), 0.], [0., 0., 1.]]);
+    pub fn rotation_matrix(yaw: f64, roll: f64, pitch_orig: f64) -> Self {
+        let pitch = pitch_orig + core::f64::consts::PI;
+
+        let rx = Matrix::from([[1., 0., 0.], [0., pitch.cos(), -pitch.sin()], [0., pitch.sin(), pitch.cos()]]);
+        let ry = Matrix::from([[yaw.cos(), 0., yaw.sin()], [0., 1., 0.], [-yaw.sin(), 0., yaw.cos()]]);
+        let rz = Matrix::from([[roll.cos(), -roll.sin(), 0.], [roll.sin(), roll.cos(), 0.], [0., 0., 1.]]);
 
         rz * ry * rx
         
@@ -246,20 +268,13 @@ impl Matrix<3, 3> {
 
 impl Matrix<3, 1> {
     pub fn cross(&self, other: Self) -> Self {
-        Matrix::from_array([
+        Vector::from_array([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
             self[0] * other[1] - self[1] * other[0],
         ])
     }
 }
-
-
-
-
-
-
-
 
 
 

@@ -1,6 +1,6 @@
 use std::array::from_fn;
 
-use crate::{linalg::Matrix, structures::*};
+use crate::{linalg::*, structures::*};
 
 /* 
 Transformations and Coordinate Systems:
@@ -23,7 +23,7 @@ Pixel Coordinates ((0, 0) to (width, height))
 impl Scene {
     pub fn render_wireframe(&mut self) {
         let world_to_camera =  self.cam.rotinv.to_affine_translate_first(-1. * self.cam.pos);
-        let screen_to_pixel = ((self.cam.window.width as f64 * 0.5) * Matrix::identity()).to_affine_translate_last(Matrix::from_array([0.5 * self.cam.window.width as f64, 0.5 * self.cam.window.height as f64, 0.]));
+        let screen_to_pixel = ((self.cam.window.width as f64 * 0.5) * Matrix::identity()).to_affine_translate_last(Vector::from_array([0.5 * self.cam.window.width as f64, 0.5 * self.cam.window.height as f64, 0.]));
 
         let objs = self.objs.clone();
         for obj in objs {
@@ -71,3 +71,4 @@ impl Scene {
         }
     }
 }
+

@@ -1,9 +1,7 @@
 use core::f64;
 use crate::linalg::*;
 use crate::window::Window;
-
-type P = Vector<3>;
-type M = Matrix<3, 3>;
+use crate::obj::Object;
 
 #[derive(Debug)]
 pub struct Scene {
@@ -11,25 +9,17 @@ pub struct Scene {
     pub cam: Camera,
 }
 
-#[derive(Clone, Debug)]
-pub struct Object {
-    pub tri: Vec<[P; 3]>,
-    pub bounding: [Vector<3>; 2],
-    pub rot: M,
-    pub pos: P,
-}
-
 #[derive(Debug)]
 pub struct Camera {
-    pub pos: P,
-    pub rot: M,
-    pub rotinv: M,
+    pub pos: Vector<3>,
+    pub rot: Matrix<3, 3>,
+    pub rotinv: Matrix<3, 3>,
     pub p: f64,
     pub window: Window,
 }
 
 impl Camera {
-    pub fn from(pos: P, rot: M, rotinv: M, p: f64, window: Window) -> Self {
+    pub fn from(pos: Vector<3>, rot: Matrix<3, 3>, rotinv: Matrix<3, 3>, p: f64, window: Window) -> Self {
 
         Camera { pos, rot, rotinv, p, window }
     }
@@ -37,7 +27,7 @@ impl Camera {
     pub fn new(pos: [f64; 3], rot: [[f64; 3]; 3], fov: f64, window: Window) -> Self {
         let p = 1. / (fov).tan();
 
-        let pv = Matrix::from_array(pos);
+        let pv = Vector::from_array(pos);
         let mv = Matrix::from(rot);
         Self::from(pv, mv, mv.inverse().unwrap(), p, window)
     }
@@ -99,8 +89,9 @@ impl Scene {
         }
     }
 
-    pub fn plot_triangle(&mut self, points: [(f64, f64, f64); 3], color: (u8, u8, u8)) {
+    pub fn plot_triangle(&mut self, points: [(f64, f64, f64); 3], color: [f64; 3]) {
         log::trace!("points: {points:?}");
+        let color_u8 = ((color[0].clamp(0., 1.) * 255.) as u8, (color[1].clamp(0., 1.) * 255.) as u8, (color[2].clamp(0., 1.) * 255.) as u8);
 
         // todo: skip lines outside of the frame
 
@@ -143,7 +134,7 @@ impl Scene {
 
                 if self.cam.window.check_depth(scan_x as usize, scan_y as usize, d) {
                     // bounds check guarenteed by depth check
-                    self.plot(scan_x as usize, scan_y as usize, color);
+                    self.plot(scan_x as usize, scan_y as usize, color_u8);
                 }
             }
         }
@@ -169,58 +160,9 @@ impl Scene {
 
                 if self.cam.window.check_depth(scan_x as usize, scan_y as usize, d) {
                     // bounds check guarenteed by depth check
-                    self.plot(scan_x as usize, scan_y as usize, color);
+                    self.plot(scan_x as usize, scan_y as usize, color_u8);
                 }
             }
         }
     }
-}
-
-
-impl Object {
-    pub fn from(tri: Vec<[Vector<3>; 3]>, rot: Matrix<3, 3>, pos: Vector<3>) -> Self {
-        let mut bounding = [Matrix::from_array([f64::INFINITY; 3]), Matrix::from_array([0.; 3])];
-        
-        for v in tri.iter().copied() {
-            for point in v {
-                bounding[0][0] = bounding[0][0].min(point[0]);
-                bounding[0][1] = bounding[0][1].min(point[1]);
-                bounding[0][2] = bounding[0][2].min(point[2]);
-
-                bounding[1][0] = bounding[1][0].max(point[0]);
-                bounding[1][1] = bounding[1][1].max(point[1]);
-                bounding[1][2] = bounding[1][2].max(point[2]);
-            }
-        }
-
-        Object { tri, bounding, rot, pos }
-
-    }
-
-    pub fn from_array(tri: Vec<[[f64; 3]; 3]>, rot: Matrix<3, 3>, pos: Vector<3>) -> Self {
-        Self::from(
-            tri.into_iter().map(|v| std::array::from_fn(|i| Matrix::from_array(v[i]))).collect(),
-            rot, pos
-        )
-    }
-
-    fn from_array_default(tri: Vec<[[f64; 3]; 3]>) -> Self {
-        Self::from_array(tri, Matrix::identity(), Matrix::zero())
-    }
-
-    pub fn scale(&mut self, x: f64) {
-        for tri in self.tri.iter_mut() {
-            for point in tri {
-                *point = x * *point;
-            }
-        }
-    }
-
-
-    pub fn cube() -> Self {     Self::from_array_default(crate::obj::get_model("cube-tex.obj")) }
-    pub fn sphere() -> Self {   Self::from_array_default(crate::obj::get_model("icosphere.obj")) }
-    pub fn triangle() -> Self { Self::from_array_default(crate::obj::get_model("triangle.obj")) }
-    pub fn teapot() -> Self { Self::from_array_default(crate::obj::get_model("teapot.obj")) }
-    pub fn dragon() -> Self { Self::from_array_default(crate::obj::get_model("dragon.obj")) }
-
 }
