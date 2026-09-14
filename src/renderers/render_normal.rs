@@ -61,8 +61,8 @@ impl Scene {
                 let avg_position = (tri[0] + tri[1] + tri[2]) * (1. / 3.);
                 let light_direction = light_position - avg_position;
                 let light_normal = (self.cam.rot * light_direction).normalized();   
-                let tri_normal = (obj.rot * (tri[0] - tri[1]).cross(&(tri[2] - tri[1]))).normalized();
-                let normal = 0.4 * -light_normal.dot(&tri_normal) + 0.5;
+                let tri_normal = (obj.rot * (tri[0] - tri[1]).cross(tri[2] - tri[1])).normalized();
+                let normal = 0.4 * -light_normal.dot(tri_normal) + 0.5;
                 let color = obj.mat.color;
                 
                 self.plot_triangle(points, from_fn(|i| normal * color[i]));

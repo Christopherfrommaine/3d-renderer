@@ -188,7 +188,7 @@ fn test_dot() {
     let a = Vector::from_array([1., 2., 3.]);
     let b = Vector::from_array([4., 5., 6.]);
 
-    assert_close(a.dot(&b), 32.);
+    assert_close(a.dot(b), 32.);
 }
 
 #[test]
@@ -214,9 +214,9 @@ fn test_cross() {
     let y = Vector::from_array([0., 1., 0.]);
     let z = Vector::from_array([0., 0., 1.]);
 
-    assert_eq!(x.cross(&y), z);
-    assert_eq!(y.cross(&z), x);
-    assert_eq!(z.cross(&x), y);
+    assert_eq!(x.cross(y), z);
+    assert_eq!(y.cross(z), x);
+    assert_eq!(z.cross(x), y);
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn test_cross_anti_commutative() {
     let a = Vector::from_array([2., 3., 5.]);
     let b = Vector::from_array([7., 11., 13.]);
 
-    assert_eq!(a.cross(&b), -b.cross(&a));
+    assert_eq!(a.cross(b), -b.cross(a));
 }
 
 #[test]

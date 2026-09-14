@@ -126,11 +126,11 @@ impl<const N: usize> Vector<N> {
         Matrix { v: [v] }
     }
 
-    pub fn dot(&self, other: &Self) -> f64 {
+    pub fn dot(self, other: Self) -> f64 {
         (0..N).map(|i| self[i] * other[i]).sum()
     }
 
-    pub fn magnitude(&self) -> f64 {
+    pub fn magnitude(self) -> f64 {
         f64::sqrt(self.dot(self))
     }
 
@@ -139,7 +139,7 @@ impl<const N: usize> Vector<N> {
     }
 }
 impl Vector<3> {
-    pub fn cross(&self, other: &Self) -> Self {
+    pub fn cross(self, other: Self) -> Self {
         Vector::from_array([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
