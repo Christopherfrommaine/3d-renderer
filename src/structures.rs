@@ -20,22 +20,17 @@ pub struct Camera {
 
 impl Camera {
     pub fn from(pos: Vector<3>, rot: Matrix<3, 3>, rotinv: Matrix<3, 3>, p: f64, window: Window) -> Self {
-
         Camera { pos, rot, rotinv, p, window }
     }
 
-    pub fn new(pos: [f64; 3], rot: [[f64; 3]; 3], fov: f64, window: Window) -> Self {
-        let p = 1. / (fov).tan();
-
-        let pv = Vector::from_array(pos);
-        let mv = Matrix::from(rot);
-        Self::from(pv, mv, mv.inverse().unwrap(), p, window)
+    pub fn with_window(window: Window) -> Self {
+        Self::from(Vector::from_array([0., 0., -5.]), Matrix::identity(), Matrix::identity(), 45. * std::f64::consts::PI / 180., window)
     }
 }
 
 impl Default for Camera {
     fn default() -> Self {
-        Self::new([0., 0., -5.], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], 45. * std::f64::consts::PI / 180., crate::window::Window::default())
+        Self::with_window(crate::window::Window::default())
     }
 }
 

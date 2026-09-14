@@ -43,7 +43,7 @@ impl Scene {
                     
                     let camera_to_screen = self.cam.p / point_cam_coords[2];
                     let mut point_screen_coords = camera_to_screen * point_cam_coords;
-                    point_screen_coords.v[3][0] = 1.;
+                    point_screen_coords[3] = 1.;
 
                     let point_pixel_coords = screen_to_pixel * point_screen_coords;
 

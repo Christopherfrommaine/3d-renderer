@@ -4,12 +4,12 @@ use crate::{linalg::*, obj::*, structures::*};
 use rayon::prelude::*;
 
 /// length of component of u in the direction of v
-fn scal<const N: usize>(u: Vector<N>, v: Vector<N>) -> f64 {
+fn scal<const N: usize>(u: &Vector<N>, v: &Vector<N>) -> f64 {
     u.dot(v) / v.magnitude()
 }
 
 /// component of u in the direction of v
-fn proj<const N: usize>(u: Vector<N>, v: Vector<N>) -> Vector<N> {
+fn proj<const N: usize>(u: &Vector<N>, v: &Vector<N>) -> Vector<N> {
     (u.dot(v) / v.dot(v)) * v
 }
 
@@ -33,18 +33,18 @@ impl Ray {
                 
                 let offset = obj.pos - self.pos;
                 
-                let [p1, p2, p3] = from_fn(|i| obj.rot * tri[i] + offset);  
-                let m = Matrix::from(from_fn(|i| (obj.rot * tri[i] + offset).as_array()));
-                
-                if let Some(m_inv) = m.inverse() {
-                    let abc = m_inv * Vector::from_array([1., 1., 1.]);
-                    let t = abc.dot(self.dir).recip();
-                    if !t.is_finite() { continue; }
-
-                    let ip = t * self.dir;  // intersection point relative to the ray origin
-                    
-
-                }
+                // let [p1, p2, p3] = from_fn(|i| obj.rot * tri[i] + offset);  
+                // let m = Matrix::from(from_fn(|i| (obj.rot * tri[i] + offset).as_array()));
+                // 
+                // if let Some(m_inv) = m.inverse() {
+                //     let abc = m_inv * Vector::from_array([1., 1., 1.]);
+                //     let t = abc.dot(self.dir).recip();
+                //     if !t.is_finite() { continue; }
+                // 
+                //     let ip = t * self.dir;  // intersection point relative to the ray origin
+                //     
+                // 
+                // }
             }
         }
 
@@ -63,26 +63,25 @@ impl Scene {
             for obj in objs.iter() {
                 for tri in obj.tri.iter().copied() {
                     let offset = obj.pos - self.cam.pos;
-                    let tri_m = Matrix::from(from_fn);
-                    // offset.apply_elementwise(|x| *x += rand::random::<f64>() * 0.0001);
-                    
-                    let [p0, p1, p2] = std::array::from_fn(|i| (obj.rot * tri[i]) + offset);
-                    
-                    let u = p1 - p0;
-                    let v = p2 - p0;
-                    let w = u.cross(v);
 
-                    let m = Matrix::from([p0.as_array(), p1.as_array(), p2.as_array()]);
+                    let mut tri_m = Matrix::from_cols(tri);
+                    tri_m = (obj.rot * tri_m).add_vec(offset);
 
-                    if let Some(mi) = m.inverse() {
+                    if let Some(mi) = tri_m.transpose_square().inverse() {
                         let abc = mi * Vector::from_array([1., 1., 1.]);
-                        let t = 1. / abc.dot(camvec);
+                        let t = abc.dot(&camvec).recip();
                         if t.is_infinite() || t.is_nan() { break; }
+
+                        let [p0, p1, p2] = tri_m.to_cols();
+                    
+                        let u = p1 - p0;
+                        let v = p2 - p0;
+                        let w = u.cross(&v);
 
                         let ip = t * camvec;
                         let ip_rel = ip - p0;
 
-                        let uv_m = Matrix::from([u.as_array(), v.as_array(), w.as_array()]).transpose();
+                        let uv_m = Matrix::from([u.as_array(), v.as_array(), w.as_array()]);
                         if let Some(uv_mi) = uv_m.inverse() {
                             let [uc, vc, wc] = (uv_mi * ip_rel).as_array();
 

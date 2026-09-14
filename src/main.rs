@@ -1,7 +1,6 @@
-use rayon::scope;
-
 use crate::{linalg::*, structures::{Camera, Scene}, obj::Object};
 
+mod tests;
 mod linalg;
 mod structures;
 mod obj;
@@ -39,6 +38,7 @@ fn print_stats(mut frame_times: Vec<f32>) {
     log::info!("  p99:  {:.3} ms ({:.2} FPS)", p99 * 1000.0, 1.0 / p99);
 
 }
+
 
 fn test_scene_triangle(renderer: fn(&mut Scene)) {
     let mut frame_times = vec![];
@@ -83,7 +83,10 @@ fn test_scene_with_renderer(renderer: fn(&mut Scene)) {
     let target_framerate: f64 = 60.;
     let target_frame_time = std::time::Duration::from_secs_f64(target_framerate.recip());
     
-    let mut scene = Scene::new(vec![Object::cube()], Camera::default());
+    // let (w, h) = (1920, 1080);
+    let (w, h) = (640, 480);
+    
+    let mut scene = Scene::new(vec![Object::cube()], Camera::with_window(window::Window::new(w, h)));
     scene.objs[0].pos = Vector::from_array([0., 0., 0.]);
     // scene.objs[0].rot = Matrix::rotation_matrix(0.4, 0.3, 1.2);
     
@@ -125,6 +128,9 @@ fn main() {
     
     // test_scene_triangle(Scene::render_normal);
     // test_scene_triangle(Scene::render_raytrace);
+
+
+    test_scene_with_renderer(Scene::render_wireframe);
     test_scene_with_renderer(Scene::render_normal);
     test_scene_with_renderer(Scene::render_raytrace);
     

@@ -10,7 +10,6 @@ unsafe fn bitcast<T, U>(inp: T) -> U {
 }
 
 
-
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Matrix<const N: usize, const M: usize> {
@@ -43,6 +42,10 @@ impl<const M: usize, const N: usize> Matrix<N, M> {
         Matrix { v: [[0.; N]; M] }
     }
 
+    pub fn one() -> Self {
+        Matrix { v: [[1.; N]; M] }
+    }
+
     pub fn identity() -> Self {
         let mut result = [[0.; N]; M];
         for i in 0..(N.min(M)) {
@@ -55,22 +58,50 @@ impl<const M: usize, const N: usize> Matrix<N, M> {
         Matrix { v: from_fn(|i| from_fn(|j| self.v[i][j] * other.v[i][j])) }
     }
 
-    pub fn apply_elementwise(&mut self, f: fn(&mut f64)) {
-        self.v.iter_mut().for_each(|col| col.iter_mut().for_each(|elem| f(elem)));
+    pub fn apply_elementwise<F: FnMut(&mut f64)>(&mut self, mut f: F) {
+        for row in &mut self.v {
+            for x in row {
+                f(x);
+            }
+        }
     }
 
-    pub fn col_vectors(self) -> [Matrix<N, 1>; M] {
+    pub fn to_cols(self) -> [Matrix<N, 1>; M] {
         unsafe { bitcast(self) }
     }
 
-    pub fn row_vectors(self) -> [Vector<M>; N] {
+    pub fn to_rows(self) -> [Vector<M>; N] {
         // In memory, a 3x3 matrix should be stored like
         // [[a, d, g], [b, e, h], [c, f, i]]
         // But we want to get out:
         // [[[a], [b], [c]], [[d], [e], [f]], [[g], [h], [i]]]
         // Which is exactly the same memory layout as self.transpose.
         
-        self.transpose().col_vectors()
+        self.transpose().to_cols()
+    }
+    
+    pub fn add_vec(mut self, vec: Vector<N>) -> Self {
+        // equivalent to `self + vec * Matrix::one()`
+
+        for i in 0..M {
+            for j in 0..N {
+                self.v[i][j] += vec[j];
+            }
+        }
+
+        self
+    }
+}
+impl<const N: usize> Matrix<N, N> {
+    pub fn transpose_square(mut self) -> Self {
+        for i in 0..N {
+            for j in (i + 1)..N {
+                let tmp = self.v[i][j];
+                self.v[i][j] = self.v[j][i];
+                self.v[j][i] = tmp;
+            }
+        }
+        self
     }
 }
 
@@ -81,7 +112,7 @@ impl<const N: usize> Vector<N> {
         Matrix { v: [v] }
     }
 
-    pub fn to_array(self) -> [f64; N] {
+    pub fn as_array(self) -> [f64; N] {
         // seems useless, but nice to distinguish for M == 1
         self.v[0]
     }
@@ -108,7 +139,7 @@ impl<const N: usize> Vector<N> {
     }
 }
 impl Vector<3> {
-    pub fn cross(&self, other: Self) -> Self {
+    pub fn cross(&self, other: &Self) -> Self {
         Vector::from_array([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
@@ -138,11 +169,10 @@ impl Matrix<2, 2> {
         self.inverse_with_det(self.det())
     }
 
-    #[inline(always)]
     fn inverse_with_det(&self, det: f64) -> Self {
         Matrix::from([
-            [ self.v[1][1], -self.v[1][0]],
-            [-self.v[0][1],  self.v[0][0]],
+            [self.v[1][1], -self.v[0][1]],
+            [-self.v[1][0], self.v[0][0]],
         ]) / det
     }
 }
@@ -164,7 +194,6 @@ impl Matrix<3, 3> {
         self.inverse_with_det(self.det())
     }
 
-    #[inline(always)]
     fn inverse_with_det(&self, det: f64) -> Self {
         let v = &self.v;
         Matrix::from([
@@ -198,19 +227,14 @@ impl Matrix<3, 3> {
         
     }
     
-    pub fn to_affine_translate_last(&self, vec: Matrix<3, 1>) -> Matrix<4, 4> {
-        // constructs:
-        // [[a11, a12, a13, v1]
-        //  [a21, a22, a23, v2]
-        //  [a31, a32, a33, v3]
-        //  [0.,  0.,  0.,  1.]]
-
-        let mut v = [[0., 0., 0., 1.]; 4];
-        for i in 0..3 {
-            v[i][..3].copy_from_slice(&self.v[i]);
-            v[i][4] = vec[i];
-        }
-        Matrix::from(v)
+    pub fn to_affine_translate_last(&self, vec: Vector<3>) -> Matrix<4, 4> {
+        let v = self.v;
+        Matrix::from([
+            [v[0][0], v[0][1], v[0][2], 0.],
+            [v[1][0], v[1][1], v[1][2], 0.],
+            [v[2][0], v[2][1], v[2][2], 0.],
+            [vec[0], vec[1], vec[2], 1.],
+        ])
     }
 
     pub fn to_affine_translate_first(&self, vec: Matrix<3, 1>) -> Matrix<4, 4> {
@@ -236,6 +260,7 @@ impl<const N: usize> std::ops::IndexMut<usize> for Vector<N> {
 use std::ops::{Mul, MulAssign, Add, AddAssign, Sub, SubAssign, Div, DivAssign, Neg};
 
 impl<const N: usize, const M: usize> Matrix<N, M> {
+    #[inline(always)]
     fn mul_private(&mut self, rhs: f64) {
         for row in &mut self.v {
             for x in row {
@@ -244,6 +269,7 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         }
     }
 
+    #[inline(always)]
     fn add_private(&mut self, rhs: f64) {
         for row in &mut self.v {
             for x in row {
@@ -252,23 +278,12 @@ impl<const N: usize, const M: usize> Matrix<N, M> {
         }
     }
 
-    fn sub_private(&mut self, rhs: f64) {
-        for row in &mut self.v {
-            for x in row {
-                *x -= rhs;
-            }
-        }
-    }
-
+    #[inline(always)]
     fn div_private(&mut self, rhs: f64) {
-        let recip = rhs.recip();
-        for row in &mut self.v {
-            for x in row {
-                *x = recip;
-            }
-        }
+        *self *= rhs.recip();
     }
 
+    #[inline(always)]
     fn neg_private(&mut self) {
         for row in &mut self.v {
             for x in row {
@@ -316,41 +331,6 @@ impl<const N: usize, const M: usize> Add<&Matrix<N, M>> for f64 {
 }
 impl<const N: usize, const M: usize> AddAssign<f64> for Matrix<N, M> {
     fn add_assign(&mut self, rhs: f64) { self.add_private(rhs); }
-}
-
-impl<const N: usize, const M: usize> Sub<f64> for Matrix<N, M> {
-    type Output = Self;
-    fn sub(mut self, rhs: f64) -> Self::Output { self.sub_private(rhs); self }
-}
-impl<const N: usize, const M: usize> Sub<f64> for &Matrix<N, M> {
-    type Output = Matrix<N, M>;
-    fn sub(self, rhs: f64) -> Self::Output { let mut result = *self; result.sub_private(rhs); result }
-}
-impl<const N: usize, const M: usize> Sub<Matrix<N, M>> for f64 {
-    type Output = Matrix<N, M>;
-    fn sub(self, mut rhs: Matrix<N, M>) -> Self::Output {
-        for row in &mut rhs.v {
-            for x in row {
-                *x = self - *x;
-            }
-        }
-        rhs
-    }
-}
-impl<const N: usize, const M: usize> Sub<&Matrix<N, M>> for f64 {
-    type Output = Matrix<N, M>;
-    fn sub(self, rhs: &Matrix<N, M>) -> Self::Output {
-        let mut result = *rhs;
-        for row in &mut result.v {
-            for x in row {
-                *x = self - *x;
-            }
-        }
-        result
-    }
-}
-impl<const N: usize, const M: usize> SubAssign<f64> for Matrix<N, M> {
-    fn sub_assign(&mut self, rhs: f64) { self.sub_private(rhs); }
 }
 
 impl<const N: usize, const M: usize> Div<f64> for Matrix<N, M> {

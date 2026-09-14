@@ -39,7 +39,7 @@ impl Scene {
                     
                     let camera_to_screen = self.cam.p / point_cam_coords[2];
                     let mut point_screen_coords = camera_to_screen * point_cam_coords;
-                    point_screen_coords.v[3][0] = 1.;
+                    point_screen_coords[3] = 1.;
 
                     let point_pixel_coords = screen_to_pixel * point_screen_coords;
 
@@ -61,8 +61,8 @@ impl Scene {
                 let avg_position = (tri[0] + tri[1] + tri[2]) * (1. / 3.);
                 let light_direction = light_position - avg_position;
                 let light_normal = (self.cam.rot * light_direction).normalized();   
-                let tri_normal = (obj.rot * (tri[0] - tri[1]).cross(tri[2] - tri[1])).normalized();
-                let normal = 0.4 * -light_normal.dot(tri_normal) + 0.5;
+                let tri_normal = (obj.rot * (tri[0] - tri[1]).cross(&(tri[2] - tri[1]))).normalized();
+                let normal = 0.4 * -light_normal.dot(&tri_normal) + 0.5;
                 let color = obj.mat.color;
                 
                 self.plot_triangle(points, from_fn(|i| normal * color[i]));

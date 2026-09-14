@@ -65,7 +65,7 @@ impl Object {
 
     pub fn from_array(tri: Vec<[[f64; 3]; 3]>, rot: Matrix<3, 3>, pos: Vector<3>, mat: Material) -> Self {
         Self::from(
-            tri.into_iter().map(|v| std::array::from_fn(|i| Vector::from_array(v[i]))).collect(),
+            tri.into_iter().map(|v| from_fn(|i| Vector::from_array(v[i]))).collect(),
             rot, pos, mat
         )
     }
